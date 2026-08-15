@@ -21,7 +21,8 @@ app.use(
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-app.get('/api/health', (req, res) => {
+// Health Check
+app.get(['/health', '/api/health'], (req, res) => {
   res.json({
     status: 'HEALTHY',
     service: 'ByteSphere File Vault Serverless API',
@@ -33,11 +34,27 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// Mount Routes with both /api prefix and root prefix (Guarantees matching regardless of Vercel path rewrite)
 app.use('/api/auth', authRoutes);
+app.use('/auth', authRoutes);
+
 app.use('/api/files', fileRoutes);
+app.use('/files', fileRoutes);
+
 app.use('/api/share', shareRoutes);
+app.use('/share', shareRoutes);
+
 app.use('/api/audit', auditRoutes);
+app.use('/audit', auditRoutes);
+
 app.use('/api/ai', aiRoutes);
+app.use('/ai', aiRoutes);
+
+// Fallback error handler
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  console.error('Serverless error:', err);
+  res.status(err.status || 500).json({ error: err.message || 'Internal Server Error' });
+});
 
 let isConnected = false;
 
@@ -47,7 +64,7 @@ export default async function handler(req: any, res: any) {
       await connectDB();
       isConnected = true;
     } catch (err) {
-      console.error('Database connection error in serverless handler:', err);
+      console.error('DB connection error in serverless handler:', err);
     }
   }
   return app(req, res);
