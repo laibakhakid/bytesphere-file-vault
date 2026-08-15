@@ -15,7 +15,14 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<User | null>(() => {
+    try {
+      const saved = localStorage.getItem('vault_user');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   useEffect(() => {
@@ -24,14 +31,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (token) {
         try {
           const res = await api.get('/auth/me');
-          setUser(res.data.user);
-        } catch (err) {
-          localStorage.removeItem('accessToken');
-          localStorage.removeItem('refreshToken');
+          if (res.data?.user) {
+            setUser(res.data.user);
+            localStorage.setItem('vault_user', JSON.stringify(res.data.user));
+          }
+        } catch (err: any) {
+          if (err.response?.status === 401 || err.response?.status === 403) {
+            localStorage.removeItem('accessToken');
+            localStorage.removeItem('refreshToken');
+            localStorage.removeItem('vault_user');
+            setUser(null);
+          }
         }
+      } else {
+        setUser(null);
+        localStorage.removeItem('vault_user');
       }
       setIsLoading(false);
     };
+
     initAuth();
   }, []);
 
@@ -40,6 +58,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const { accessToken, refreshToken, user: userData } = res.data;
     localStorage.setItem('accessToken', accessToken);
     localStorage.setItem('refreshToken', refreshToken);
+    localStorage.setItem('vault_user', JSON.stringify(userData));
     setUser(userData);
   };
 
@@ -48,6 +67,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const { accessToken, refreshToken, user: userData } = res.data;
     localStorage.setItem('accessToken', accessToken);
     localStorage.setItem('refreshToken', refreshToken);
+    localStorage.setItem('vault_user', JSON.stringify(userData));
     setUser(userData);
   };
 
@@ -59,6 +79,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } finally {
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
+      localStorage.removeItem('vault_user');
       setUser(null);
     }
   };
@@ -66,7 +87,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const refreshProfile = async () => {
     try {
       const res = await api.get('/auth/me');
-      setUser(res.data.user);
+      if (res.data?.user) {
+        setUser(res.data.user);
+        localStorage.setItem('vault_user', JSON.stringify(res.data.user));
+      }
     } catch (err) {
       // Ignore
     }
