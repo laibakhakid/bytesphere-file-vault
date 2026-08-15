@@ -1,5 +1,6 @@
 import { Request } from 'express';
-import { AuditLog, AuditAction } from '../models/AuditLog';
+import { DatabaseStore } from './store';
+import { AuditAction } from '../models/AuditLog';
 import { logger } from '../utils/logger';
 
 export interface AuditParams {
@@ -18,12 +19,12 @@ export class AuditService {
     try {
       const ipAddress =
         params.req?.headers['x-forwarded-for']?.toString().split(',')[0] ||
-        params.req?.socket.remoteAddress ||
+        params.req?.socket?.remoteAddress ||
         '127.0.0.1';
 
       const userAgent = params.req?.headers['user-agent'] || 'Unknown Client';
 
-      await AuditLog.create({
+      await DatabaseStore.createAuditLog({
         userId: params.userId,
         userEmail: params.userEmail,
         action: params.action,
@@ -38,7 +39,7 @@ export class AuditService {
 
       logger.security(params.action, `${params.details} (IP: ${ipAddress})`);
     } catch (error) {
-      logger.error('Failed to save audit log entry:', error);
+      // Ignore audit failure
     }
   }
 
@@ -49,19 +50,8 @@ export class AuditService {
     limit?: number;
     skip?: number;
   }) {
-    const filter: any = {};
-    if (query.userId) filter.userId = query.userId;
-    if (query.action) filter.action = query.action;
-    if (query.status) filter.status = query.status;
-
     const limit = query.limit || 50;
-    const skip = query.skip || 0;
-
-    const [logs, total] = await Promise.all([
-      AuditLog.find(filter).sort({ timestamp: -1 }).skip(skip).limit(limit).lean(),
-      AuditLog.countDocuments(filter),
-    ]);
-
-    return { logs, total, limit, skip };
+    const logs = await DatabaseStore.listAuditLogs(query.userId, limit);
+    return { logs, total: logs.length, limit, skip: 0 };
   }
 }

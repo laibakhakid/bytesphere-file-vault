@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
-import { User } from '../models/User';
+import { DatabaseStore } from '../services/store';
 import {
   generateAccessToken,
   generateRefreshToken,
@@ -26,7 +26,11 @@ export class AuthController {
     try {
       const { fullName, email, password } = req.body;
 
-      const existingUser = await User.findOne({ email: email.toLowerCase() });
+      if (!email || !password || !fullName) {
+        return res.status(400).json({ error: 'Full name, email, and password are required.' });
+      }
+
+      const existingUser = await DatabaseStore.findUserByEmail(email.toLowerCase());
       if (existingUser) {
         await AuditService.log({
           req,
@@ -41,23 +45,23 @@ export class AuthController {
       const salt = await bcrypt.genSalt(12);
       const passwordHash = await bcrypt.hash(password, salt);
 
-      const user = await User.create({
+      const user = await DatabaseStore.createUser({
         fullName,
         email: email.toLowerCase(),
         passwordHash,
         role: 'user',
       });
 
-      const tokenPayload = { userId: user._id.toString(), email: user.email, role: user.role };
+      const tokenPayload = { userId: user._id ? user._id.toString() : user.id, email: user.email, role: user.role };
       const accessToken = generateAccessToken(tokenPayload);
       const refreshToken = generateRefreshToken(tokenPayload);
 
       user.refreshToken = refreshToken;
-      await user.save();
+      if (user.save) await user.save();
 
       await AuditService.log({
         req,
-        userId: user._id.toString(),
+        userId: user._id ? user._id.toString() : user.id,
         userEmail: user.email,
         action: 'USER_REGISTER',
         details: `User account created successfully for ${user.email}`,
@@ -68,7 +72,7 @@ export class AuthController {
         accessToken,
         refreshToken,
         user: {
-          id: user._id,
+          id: user._id ? user._id.toString() : user.id,
           fullName: user.fullName,
           email: user.email,
           role: user.role,
@@ -85,7 +89,11 @@ export class AuthController {
     try {
       const { email, password } = req.body;
 
-      const user = await User.findOne({ email: email.toLowerCase() });
+      if (!email || !password) {
+        return res.status(400).json({ error: 'Email and password are required.' });
+      }
+
+      const user = await DatabaseStore.findUserByEmail(email.toLowerCase());
       if (!user) {
         await AuditService.log({
           req,
@@ -100,7 +108,7 @@ export class AuthController {
       if (!isMatch) {
         await AuditService.log({
           req,
-          userId: user._id.toString(),
+          userId: user._id ? user._id.toString() : user.id,
           userEmail: user.email,
           action: 'LOGIN_FAILED',
           details: `Invalid password attempt for email: ${email}`,
@@ -109,16 +117,16 @@ export class AuthController {
         return res.status(401).json({ error: 'Invalid email or password.' });
       }
 
-      const tokenPayload = { userId: user._id.toString(), email: user.email, role: user.role };
+      const tokenPayload = { userId: user._id ? user._id.toString() : user.id, email: user.email, role: user.role };
       const accessToken = generateAccessToken(tokenPayload);
       const refreshToken = generateRefreshToken(tokenPayload);
 
       user.refreshToken = refreshToken;
-      await user.save();
+      if (user.save) await user.save();
 
       await AuditService.log({
         req,
-        userId: user._id.toString(),
+        userId: user._id ? user._id.toString() : user.id,
         userEmail: user.email,
         action: 'LOGIN_SUCCESS',
         details: `User logged in successfully`,
@@ -129,7 +137,7 @@ export class AuthController {
         accessToken,
         refreshToken,
         user: {
-          id: user._id,
+          id: user._id ? user._id.toString() : user.id,
           fullName: user.fullName,
           email: user.email,
           role: user.role,
@@ -150,7 +158,7 @@ export class AuthController {
       }
 
       const payload = verifyRefreshToken(refreshToken);
-      const user = await User.findById(payload.userId);
+      const user = await DatabaseStore.findUserById(payload.userId);
 
       if (!user || user.refreshToken !== refreshToken) {
         await AuditService.log({
@@ -162,12 +170,12 @@ export class AuthController {
         return res.status(403).json({ error: 'Invalid or revoked refresh token' });
       }
 
-      const tokenPayload = { userId: user._id.toString(), email: user.email, role: user.role };
+      const tokenPayload = { userId: user._id ? user._id.toString() : user.id, email: user.email, role: user.role };
       const newAccessToken = generateAccessToken(tokenPayload);
       const newRefreshToken = generateRefreshToken(tokenPayload);
 
       user.refreshToken = newRefreshToken;
-      await user.save();
+      if (user.save) await user.save();
 
       return res.json({
         accessToken: newAccessToken,
@@ -181,7 +189,11 @@ export class AuthController {
   public static async logout(req: AuthenticatedRequest, res: Response) {
     try {
       if (req.user?.userId) {
-        await User.findByIdAndUpdate(req.user.userId, { refreshToken: '' });
+        const user = await DatabaseStore.findUserById(req.user.userId);
+        if (user) {
+          user.refreshToken = '';
+          if (user.save) await user.save();
+        }
       }
       return res.json({ message: 'Logged out successfully' });
     } catch (error: any) {
@@ -191,11 +203,20 @@ export class AuthController {
 
   public static async getMe(req: AuthenticatedRequest, res: Response) {
     try {
-      const user = await User.findById(req.user?.userId).select('-passwordHash -refreshToken');
+      const user = await DatabaseStore.findUserById(req.user?.userId || '');
       if (!user) {
         return res.status(404).json({ error: 'User not found' });
       }
-      return res.json({ user });
+      return res.json({
+        user: {
+          id: user._id ? user._id.toString() : user.id,
+          fullName: user.fullName,
+          email: user.email,
+          role: user.role,
+          storageQuotaBytes: user.storageQuotaBytes,
+          storageUsedBytes: user.storageUsedBytes,
+        },
+      });
     } catch (error: any) {
       return res.status(500).json({ error: 'Failed to fetch user profile' });
     }
