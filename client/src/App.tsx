@@ -28,7 +28,7 @@ const ProtectedLayout: React.FC = () => {
           <p className="text-sm font-bold text-[#1E1B4B]">
             Opening Your Secure Vault...
           </p>
-          <p className="text-xs text-[#6B7280] mt-1">Verifying your account security</p>
+          <p className="text-xs text-[#6B7280] mt-1">Verifying session</p>
         </div>
       </div>
     );
@@ -60,8 +60,9 @@ const ProtectedLayout: React.FC = () => {
 
 const PublicOnlyRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated, isLoading } = useAuth();
-  if (isLoading) return null;
-  if (isAuthenticated) return <Navigate to="/dashboard" replace />;
+  if (isAuthenticated && !isLoading) {
+    return <Navigate to="/dashboard" replace />;
+  }
   return <>{children}</>;
 };
 
