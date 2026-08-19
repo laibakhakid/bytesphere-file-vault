@@ -108,7 +108,15 @@ export const SharedFileView: React.FC = () => {
             <div className="p-5 rounded-2xl bg-[#FEE2E2] border border-[#FCA5A5] text-[#991B1B] text-sm text-center space-y-3">
               <AlertTriangle className="w-8 h-8 mx-auto text-[#EF4444]" />
               <div>
-                <p className="font-bold text-base text-[#7F1D1D]">Link Expired or Unavailable</p>
+                <p className="font-bold text-base text-[#7F1D1D]">
+                  {error.toLowerCase().includes('expired')
+                    ? 'Link Expired'
+                    : error.toLowerCase().includes('one-time') || error.toLowerCase().includes('self-destruct')
+                    ? 'One-Time Link Already Downloaded'
+                    : error.toLowerCase().includes('not found') || error.toLowerCase().includes('invalid')
+                    ? 'Link Not Found'
+                    : 'Link Unavailable'}
+                </p>
                 <p className="mt-1 text-[#991B1B] leading-relaxed">{error}</p>
               </div>
               <div className="pt-2">

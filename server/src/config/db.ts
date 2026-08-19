@@ -5,7 +5,7 @@ import { logger } from '../utils/logger';
 let isConnecting = false;
 
 export const connectDB = async (): Promise<void> => {
-  // If already connected, reuse existing connection (crucial for Serverless Vercel)
+  // If already connected, reuse existing connection
   if ((mongoose.connection.readyState as number) === 1) {
     return;
   }

@@ -243,7 +243,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, file, onClose })
                   <span>Testing on your phone via Wi-Fi?</span>
                 </div>
                 <p className="text-[11px] leading-relaxed text-[#78350F]">
-                  Because this server is currently running on your laptop, opening <code>localhost</code> directly on a phone will not connect. Instead, use your laptop's Wi-Fi IP address (e.g. <code>http://192.168.x.x:5173/share/...</code>) or deploy to Vercel for public links that work everywhere!
+                  Because the server is running on your local network, opening <code>localhost</code> directly on a phone will not connect. Instead, use your laptop's Wi-Fi IP address (e.g. <code>http://192.168.x.x:5173/share/...</code>) to open and test this link on your phone or any device on the same Wi-Fi!
                 </p>
               </div>
             )}

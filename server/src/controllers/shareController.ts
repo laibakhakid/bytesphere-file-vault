@@ -81,9 +81,9 @@ export class ShareController {
         return res.status(410).json({ error: 'This share link has expired' });
       }
 
-      let file = shareLink.fileId;
-      if (typeof file === 'string') {
-        file = await DatabaseStore.findFileById(file);
+      let file: any = shareLink.fileId;
+      if (!file || !file.originalName) {
+        file = await DatabaseStore.findFileById(shareLink.fileId);
       }
 
       if (!file) {
@@ -100,7 +100,8 @@ export class ShareController {
         expiresAt: shareLink.expiresAt,
       });
     } catch (error: any) {
-      return res.status(500).json({ error: 'Failed to retrieve share link metadata' });
+      console.error('getShareInfo error:', error);
+      return res.status(500).json({ error: 'Failed to retrieve share link metadata: ' + error.message });
     }
   }
 
@@ -111,11 +112,15 @@ export class ShareController {
 
       const shareLink = await DatabaseStore.findShareByToken(token);
       if (!shareLink) {
-        return res.status(404).json({ error: 'Invalid share link' });
+        return res.status(404).json({ error: 'Invalid or non-existent share link' });
       }
 
-      if (shareLink.isRevoked || new Date() > new Date(shareLink.expiresAt)) {
-        return res.status(410).json({ error: 'This link has expired or reached its maximum download limit' });
+      if (shareLink.isRevoked) {
+        return res.status(410).json({ error: 'This one-time download link has already been used and self-destructed.' });
+      }
+
+      if (new Date() > new Date(shareLink.expiresAt)) {
+        return res.status(410).json({ error: 'This share link has expired.' });
       }
 
       // Password verification
@@ -129,9 +134,9 @@ export class ShareController {
         }
       }
 
-      let file = shareLink.fileId;
-      if (typeof file === 'string') {
-        file = await DatabaseStore.findFileById(file);
+      let file: any = shareLink.fileId;
+      if (!file || !file.storageKey) {
+        file = await DatabaseStore.findFileById(shareLink.fileId);
       }
 
       if (!file) {

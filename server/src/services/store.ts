@@ -6,7 +6,7 @@ import { ShareLink, IShareLink } from '../models/ShareLink';
 import { AuditLog, IAuditLog } from '../models/AuditLog';
 import { v4 as uuidv4 } from 'uuid';
 
-// In-Memory Data Fallback (Guarantees 100% operation on Vercel Serverless even without MongoDB Atlas)
+// In-Memory Data Fallback (Guarantees 100% operation even when local MongoDB daemon is not running)
 const memUsers = new Map<string, any>();
 const memFiles = new Map<string, any>();
 const memVersions = new Map<string, any[]>();
@@ -132,15 +132,19 @@ export class DatabaseStore {
       .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
   }
 
-  public static async findFileById(fileId: string): Promise<any> {
+  public static async findFileById(fileId: any): Promise<any> {
+    if (!fileId) return null;
+    const idStr = fileId._id ? fileId._id.toString() : fileId.toString();
+
     if (this.isMongoConnected()) {
       try {
-        return await FileModel.findById(fileId);
-      } catch (e) {
-        console.warn('Mongo findFileById error, falling back to memory store');
+        const file = await FileModel.findById(idStr);
+        if (file) return file;
+      } catch (e: any) {
+        console.warn('Mongo findFileById error, falling back to memory store:', e.message);
       }
     }
-    return memFiles.get(fileId) || null;
+    return memFiles.get(idStr) || memFiles.get(fileId) || null;
   }
 
   public static async deleteFile(fileId: string): Promise<boolean> {
@@ -161,18 +165,20 @@ export class DatabaseStore {
 
   // --- SHARE OPERATIONS ---
   public static async createShareLink(shareData: any): Promise<any> {
+    const token = shareData.token || uuidv4().replace(/-/g, '');
+    const dataToSave = { ...shareData, token };
+
     if (this.isMongoConnected()) {
       try {
-        return await ShareLink.create(shareData);
-      } catch (e) {
-        console.warn('Mongo createShareLink error, falling back to memory store');
+        return await ShareLink.create(dataToSave);
+      } catch (e: any) {
+        console.warn('Mongo createShareLink error, falling back to memory store:', e.message);
       }
     }
-    const token = uuidv4().replace(/-/g, '');
+
     const newShare = {
       _id: new mongoose.Types.ObjectId().toString(),
-      token,
-      ...shareData,
+      ...dataToSave,
       accessCount: 0,
       createdAt: new Date(),
       save: async function () {
@@ -187,9 +193,10 @@ export class DatabaseStore {
   public static async findShareByToken(token: string): Promise<any> {
     if (this.isMongoConnected()) {
       try {
-        return await ShareLink.findOne({ token });
-      } catch (e) {
-        console.warn('Mongo findShareByToken error, falling back to memory store');
+        const share = await ShareLink.findOne({ token }).populate('fileId');
+        if (share) return share;
+      } catch (e: any) {
+        console.warn('Mongo findShareByToken error, falling back to memory store:', e.message);
       }
     }
     return memShares.get(token) || null;

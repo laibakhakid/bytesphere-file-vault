@@ -66,13 +66,34 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
   });
 });
 
+import os from 'os';
+
+const getLocalIP = (): string => {
+  const interfaces = os.networkInterfaces();
+  for (const name of Object.keys(interfaces)) {
+    for (const iface of interfaces[name] || []) {
+      if (iface.family === 'IPv4' && !iface.internal) {
+        return iface.address;
+      }
+    }
+  }
+  return '127.0.0.1';
+};
+
 const startServer = async () => {
   await connectDB();
-  app.listen(env.PORT, () => {
-    logger.info(`Vault API Server listening on port ${env.PORT}`);
-    logger.info(`Environment: ${env.NODE_ENV}`);
-    logger.info(`AES-256-GCM Stream Engine Active`);
+  const localIp = getLocalIP();
+  
+  app.listen(env.PORT, '0.0.0.0', () => {
+    logger.info(`====================================================`);
+    logger.info(`🛡️  Vault Backend API Server Active`);
+    logger.info(`➜  Local:   http://localhost:${env.PORT}/api/health`);
+    logger.info(`➜  Network: http://${localIp}:${env.PORT}/api/health`);
+    logger.info(`➜  Client:  http://localhost:5173 / http://${localIp}:5173`);
+    logger.info(`➜  Storage: ${env.STORAGE_DRIVER.toUpperCase()} (AES-256-GCM Envelope Encryption)`);
+    logger.info(`====================================================`);
   });
 };
 
 startServer();
+
