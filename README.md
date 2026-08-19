@@ -6,9 +6,9 @@ ByteSphere is a secure file storage web application. It lets you upload files, l
 
 ## 👥 Project Team & Contributors
 
-* **Laiba Khalid (Frontend Lead):** Built the website user interface using React and Tailwind CSS. Made the dashboard, 3D graphics, upload screens, and mobile design.
-* **Kinza Khalid (Backend & AI Engineer):** Built the server using Node.js and Express. Connected the Google Gemini AI scanner, handled file uploads, and created the backup database system.
-* **Shazeen Amad (Security & Encryption Analyst):** Created the AES-256-GCM file encryption system, built the self-destructing share links, and created the activity logs.
+* **Frontend Lead (Laiba Khalid https://github.com/laibakhakid):** Built the website user interface using React and Tailwind CSS. Made the dashboard, 3D graphics, upload screens, and mobile design.
+* **Backend & AI Engineer (Kinza Khalid https://github.com/Kinzakhalid593):** Built the server using Node.js and Express. Connected the Google Gemini AI scanner, handled file uploads, and created the backup database system.
+* **Security & Encryption Analyst (Shazeen Amjad https://github.com/shazeenamjad45-beep):** Created the AES-256-GCM file encryption system, built the self-destructing share links, and created the activity logs.
 
 ---
 
